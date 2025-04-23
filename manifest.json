@@ -1,0 +1,19 @@
+{
+  "name": "Figma Design Inspector",
+  "id": "1496782745168210277",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "documentAccess": "dynamic-page",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["none"]
+  },
+  "permissions": [],
+  "menu": [
+    {
+      "name": "Figma Design Inspector",
+      "command": "open-plugin"
+    }
+  ]
+} 

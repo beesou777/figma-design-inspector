@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      background: #ffffff;
+      color: #333333;
+      font-size: 12px;
+    }
+
+    .container {
+      padding: 16px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e5e5e5;
+    }
+
+    .node-info {
+      font-weight: 500;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 2px;
+      margin-bottom: 16px;
+      background: #f5f5f5;
+      padding: 4px;
+      border-radius: 6px;
+    }
+
+    .tab {
+      padding: 8px 16px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-weight: 500;
+      color: #666;
+    }
+
+    .tab.active {
+      background: #fff;
+      color: #333;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .section {
+      margin-bottom: 24px;
+    }
+
+    .section-title {
+      font-weight: 600;
+      color: #666;
+      margin-bottom: 8px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .property-group {
+      background: #f8f8f8;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 8px;
+    }
+
+    .property {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 0;
+    }
+
+    .property-name {
+      color: #666;
+    }
+
+    .property-value {
+      font-family: 'SF Mono', monospace;
+      color: #333;
+    }
+
+    .color-preview {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-right: 8px;
+      border: 1px solid rgba(0,0,0,0.1);
+    }
+
+    .code-block {
+      background: #f8f8f8;
+      padding: 12px;
+      border-radius: 6px;
+      font-family: 'SF Mono', monospace;
+      white-space: pre;
+      overflow-x: auto;
+    }
+
+    .copy-button {
+      padding: 6px 12px;
+      background: #0066ff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .copy-button:hover {
+      background: #0052cc;
+    }
+
+    .spacing-diagram {
+      background: #f8f8f8;
+      padding: 16px;
+      border-radius: 6px;
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    .spacing-value {
+      font-weight: 500;
+      color: #0066ff;
+    }
+
+    .export-settings {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .export-item {
+      background: #f8f8f8;
+      padding: 8px 12px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .constraints-diagram {
+      background: #f8f8f8;
+      padding: 16px;
+      border-radius: 6px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .constraint-arrow {
+      width: 24px;
+      height: 24px;
+      background: #ddd;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .constraint-arrow.active {
+      background: #0066ff;
+      color: white;
+    }
+
+    .no-selection {
+      text-align: center;
+      color: #666;
+      padding: 32px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="content">
+      <div class="no-selection">
+        Select a layer to inspect its properties
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Handle messages from the plugin
+    window.onmessage = async (event) => {
+      const msg = event.data.pluginMessage;
+      
+      if (msg.type === 'no-selection') {
+        document.getElementById('content').innerHTML = `
+          <div class="no-selection">
+            Select a layer to inspect its properties
+          </div>
+        `;
+        return;
+      }
+
+      if (msg.type === 'selection-update') {
+        const node = msg.nodes[0];
+        const spacing = msg.spacing;
+        const css = msg.css;
+        const tailwind = msg.tailwind;
+
+        document.getElementById('content').innerHTML = `
+          <div class="header">
+            <div class="node-info">${node.name} (${node.type})</div>
+            <button class="copy-button" onclick="copyCSS()">Copy CSS</button>
+          </div>
+
+          <div class="tabs">
+            <div class="tab active" onclick="showTab('layout')">Layout</div>
+            <div class="tab" onclick="showTab('appearance')">Appearance</div>
+            <div class="tab" onclick="showTab('typography')">Typography</div>
+            <div class="tab" onclick="showTab('code')">Code</div>
+          </div>
+
+          <div id="layout" class="tab-content active">
+            <div class="section">
+              <div class="section-title">Size</div>
+              <div class="property-group">
+                <div class="property">
+                  <span class="property-name">Width</span>
+                  <span class="property-value">${node.width}px</span>
+                </div>
+                <div class="property">
+                  <span class="property-name">Height</span>
+                  <span class="property-value">${node.height}px</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Position</div>
+              <div class="property-group">
+                <div class="property">
+                  <span class="property-name">X</span>
+                  <span class="property-value">${node.x}px</span>
+                </div>
+                <div class="property">
+                  <span class="property-name">Y</span>
+                  <span class="property-value">${node.y}px</span>
+                </div>
+              </div>
+            </div>
+
+            ${node.styles?.layout?.spacing?.padding ? `
+              <div class="section">
+                <div class="section-title">Padding</div>
+                <div class="property-group">
+                  <div class="property">
+                    <span class="property-name">Top</span>
+                    <span class="property-value">${node.styles.layout.spacing.padding.top}</span>
+                  </div>
+                  <div class="property">
+                    <span class="property-name">Right</span>
+                    <span class="property-value">${node.styles.layout.spacing.padding.right}</span>
+                  </div>
+                  <div class="property">
+                    <span class="property-name">Bottom</span>
+                    <span class="property-value">${node.styles.layout.spacing.padding.bottom}</span>
+                  </div>
+                  <div class="property">
+                    <span class="property-name">Left</span>
+                    <span class="property-value">${node.styles.layout.spacing.padding.left}</span>
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+
+            ${spacing ? `
+              <div class="section">
+                <div class="section-title">Spacing</div>
+                <div class="property-group">
+                  <div class="property">
+                    <span class="property-name">Horizontal</span>
+                    <span class="property-value">${spacing.horizontal}px</span>
+                  </div>
+                  <div class="property">
+                    <span class="property-name">Vertical</span>
+                    <span class="property-value">${spacing.vertical}px</span>
+                  </div>
+                </div>
+                <div class="spacing-diagram">
+                  <div class="spacing-value">${spacing.horizontal}px</div>
+                  <div>Horizontal spacing</div>
+                </div>
+              </div>
+            ` : ''}
+
+            ${node.autoLayout ? `
+              <div class="section">
+                <div class="section-title">Auto Layout</div>
+                <div class="property-group">
+                  <div class="property">
+                    <span class="property-name">Direction</span>
+                    <span class="property-value">${node.autoLayout.direction}</span>
+                  </div>
+                  <div class="property">
+                    <span class="property-name">Alignment</span>
+                    <span class="property-value">${node.autoLayout.alignment}</span>
+                  </div>
+                  <div class="property">
+                    <span class="property-name">Spacing</span>
+                    <span class="property-value">${node.autoLayout.spacing}px</span>
+                  </div>
+                  <div class="property">
+                    <span class="property-name">Padding</span>
+                    <span class="property-value">${node.autoLayout.padding.top}px ${node.autoLayout.padding.right}px ${node.autoLayout.padding.bottom}px ${node.autoLayout.padding.left}px</span>
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+
+            ${node.constraints ? `
+              <div class="section">
+                <div class="section-title">Constraints</div>
+                <div class="constraints-diagram">
+                  <div class="constraint-arrow ${node.constraints.horizontal === 'left' ? 'active' : ''}">←</div>
+                  <div class="constraint-arrow ${node.constraints.horizontal === 'right' ? 'active' : ''}">→</div>
+                  <div class="constraint-arrow ${node.constraints.vertical === 'top' ? 'active' : ''}">↑</div>
+                  <div class="constraint-arrow ${node.constraints.vertical === 'bottom' ? 'active' : ''}">↓</div>
+                </div>
+              </div>
+            ` : ''}
+          </div>
+
+          <div id="appearance" class="tab-content">
+            ${node.styles?.appearance?.background ? `
+              <div class="section">
+                <div class="section-title">Fill</div>
+                <div class="property-group">
+                  <div class="property">
+                    <span class="property-name">Background</span>
+                    <span class="property-value">
+                      <span class="color-preview" style="background: ${node.styles.appearance.background}"></span>
+                      ${node.styles.appearance.background}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+
+            ${node.styles?.appearance?.border ? `
+              <div class="section">
+                <div class="section-title">Border</div>
+                <div class="property-group">
+                  <div class="property">
+                    <span class="property-name">Style</span>
+                    <span class="property-value">${node.styles.appearance.border.style}</span>
+                  </div>
+                  <div class="property">
+                    <span class="property-name">Width</span>
+                    <span class="property-value">${node.styles.appearance.border.width}</span>
+                  </div>
+                  <div class="property">
+                    <span class="property-name">Color</span>
+                    <span class="property-value">
+                      <span class="color-preview" style="background: ${node.styles.appearance.border.color}"></span>
+                      ${node.styles.appearance.border.color}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+
+            ${node.styles?.effects?.shadow?.length ? `
+              <div class="section">
+                <div class="section-title">Effects</div>
+                <div class="property-group">
+                  ${node.styles.effects.shadow.map((shadow, index) => `
+                    <div class="property">
+                      <span class="property-name">Shadow ${index + 1}</span>
+                      <span class="property-value">
+                        <span class="color-preview" style="background: ${shadow.color}"></span>
+                        ${shadow.color} ${shadow.offset.x}px ${shadow.offset.y}px ${shadow.blur}px
+                      </span>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+
+          <div id="typography" class="tab-content">
+            ${node.styles?.typography ? `
+              <div class="section">
+                <div class="section-title">Font</div>
+                <div class="property-group">
+                  <div class="property">
+                    <span class="property-name">Family</span>
+                    <span class="property-value">${node.styles.typography.fontFamily}</span>
+                  </div>
+                  <div class="property">
+                    <span class="property-name">Size</span>
+                    <span class="property-value">${node.styles.typography.fontSize}</span>
+                  </div>
+                  <div class="property">
+                    <span class="property-name">Weight</span>
+                    <span class="property-value">${node.styles.typography.fontWeight}</span>
+                  </div>
+                  <div class="property">
+                    <span class="property-name">Line Height</span>
+                    <span class="property-value">${node.styles.typography.lineHeight}</span>
+                  </div>
+                  <div class="property">
+                    <span class="property-name">Letter Spacing</span>
+                    <span class="property-value">${node.styles.typography.letterSpacing}</span>
+                  </div>
+                  <div class="property">
+                    <span class="property-name">Align</span>
+                    <span class="property-value">${node.styles.typography.textAlign}</span>
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+          </div>
+
+          <div id="code" class="tab-content">
+            <div class="section">
+              <div class="section-title">CSS</div>
+              <div class="code-block">${css}</div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Tailwind</div>
+              <div class="code-block">${tailwind}</div>
+            </div>
+          </div>
+        `;
+      }
+    };
+
+    function showTab(tabName) {
+      // Hide all tabs
+      document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+
+      // Show selected tab
+      document.getElementById(tabName).classList.add('active');
+      document.querySelector(`.tab[onclick="showTab('${tabName}')"]`).classList.add('active');
+    }
+
+    function copyCSS() {
+      const cssBlock = document.querySelector('.code-block');
+      if (cssBlock) {
+        navigator.clipboard.writeText(cssBlock.textContent);
+        const button = document.querySelector('.copy-button');
+        button.textContent = 'Copied!';
+        setTimeout(() => {
+          button.textContent = 'Copy CSS';
+        }, 2000);
+      }
+    }
+  </script>
+</body>
+</html> 
